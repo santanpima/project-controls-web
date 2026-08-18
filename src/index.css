@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* text-sm (14px) is the baseline body size for this data-dense app per
+   4.2.1.1.1 — smaller than a typical marketing site's default. */
+body {
+  @apply text-sm text-neutral-900 bg-neutral-50;
+}
