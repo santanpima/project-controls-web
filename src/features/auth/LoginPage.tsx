@@ -26,6 +26,9 @@ export function LoginPage(): JSX.Element {
 
   const locationState = location.state as { from?: { pathname: string }; registered?: boolean } | null;
   const redirectTo = locationState?.from?.pathname ?? "/";
+  // Set once, from the state RegisterPage navigated here with — not
+  // re-read on every render, so it doesn't reappear if the person
+  // navigates away and back without actually registering again.
   const [justRegistered] = useState(!!locationState?.registered);
 
   async function onSubmit(values: LoginFormValues): Promise<void> {
@@ -34,6 +37,10 @@ export function LoginPage(): JSX.Element {
       await signIn(values.email, values.password);
       navigate(redirectTo, { replace: true });
     } catch (err) {
+      // 423 (locked) and 403 (deactivated) get their own real backend
+      // messages already — surfaced here verbatim rather than genericized,
+      // since they're meaningfully different situations for the person to
+      // understand ("try again in 15 minutes" vs. "contact an admin").
       if (err instanceof ApiError) {
         setFormError(err.message);
       } else {

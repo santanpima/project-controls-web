@@ -43,10 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   // Wire the API client to this context's own state, once, at mount — see
-  // client.ts for why this is an injected getter rather than a direct import.
+  // client.ts for why this is an injected getter rather than a direct
+  // import. Deliberately NOT `() => token` re-registered on every state
+  // change: that closed over React state, which only updates after a
+  // re-render completes — a real race window where signIn() resolves,
+  // the page navigates immediately, and the very next screen's first API
+  // call could fire before the effect below had run, going out with no
+  // token at all and getting a 401 back. Reading directly from
+  // sessionStorage instead has no such gap: signIn() writes it
+  // synchronously, before it ever returns, so any call after that point
+  // sees it immediately, regardless of React's own render/effect timing.
   useEffect(() => {
-    setTokenGetter(() => token);
-  }, [token]);
+    setTokenGetter(() => sessionStorage.getItem(TOKEN_STORAGE_KEY));
+  }, []);
 
   useEffect(() => {
     setUnauthorizedHandler(() => signOut());

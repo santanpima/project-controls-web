@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useAuth } from "@shared/auth/AuthContext";
 
 // A genuine placeholder, not a real module screen — every actual feature
@@ -19,9 +20,22 @@ export function HomePage(): JSX.Element {
         rest) haven&apos;t been built yet — this page exists to prove sign-in and the app shell
         work end-to-end first.
       </p>
+      {/* No real Projects list exists yet — no frontend work has been done
+          for creating or browsing projects, only the backend API for it.
+          This link deliberately uses a literal "demo" projectId so the
+          real navigation shell (NavBar, SidePanel, Breadcrumbs, all ten
+          module routes) can actually be reached, clicked through, and
+          tested end to end, without faking a project-picker that doesn't
+          exist yet. */}
+      <Link
+        to="/projects/demo/wbs"
+        className="mt-4 inline-block rounded bg-brand-primary text-white px-4 py-2 text-sm font-medium"
+      >
+        View demo project shell
+      </Link>
       <button
         onClick={signOut}
-        className="mt-6 rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700"
+        className="mt-6 ml-3 rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700"
       >
         Sign out
       </button>

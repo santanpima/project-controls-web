@@ -6,6 +6,10 @@ import { useState } from "react";
 import { useAuth, ApiError } from "@shared/auth/AuthContext";
 import { TextInput } from "@shared/components/TextInput";
 
+// Mirrors password-policy.js's validatePassword() exactly (8+ characters,
+// a lowercase letter, an uppercase letter, a digit) — client-side
+// validation as a courtesy, but the backend enforces the same rule
+// independently regardless of what this form allows through.
 const registerSchema = z
   .object({
     email: z.string().min(1, "Email is required").email("Enter a valid email address"),
@@ -45,8 +49,17 @@ export function RegisterPage(): JSX.Element {
         firstName: values.firstName || undefined,
         lastName: values.lastName || undefined,
       });
+      // No session is established on registration (repository.js defaults
+      // every new account to 'viewer', and signUp() deliberately doesn't
+      // sign the person in) — the same two-step flow a real identity
+      // provider would also require. The success message travels through
+      // router state rather than a query param, so it disappears on
+      // refresh rather than lingering in the URL.
       navigate("/login", { state: { registered: true } });
     } catch (err) {
+      // WEAK_PASSWORD and EMAIL_TAKEN already carry clear, specific
+      // messages from the backend — surfaced verbatim, the same pattern
+      // LoginPage uses for its own backend-originated errors.
       if (err instanceof ApiError) {
         setFormError(err.message);
       } else {
