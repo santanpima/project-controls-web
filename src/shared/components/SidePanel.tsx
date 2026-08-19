@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import type { NavSection } from "./nav-structure";
+import type { NavSection } from "../ui/nav-structure";
 
 interface SidePanelProps {
   sections: NavSection[];
