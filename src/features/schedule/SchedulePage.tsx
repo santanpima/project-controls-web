@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@shared/auth/AuthContext";
 import { readOnlyReason } from "@shared/auth/permissions";
 import { Modal } from "@shared/components/Modal";
+import { Tabs } from "@shared/components/Tabs";
 import * as schedulingApi from "@shared/api/scheduling";
 import * as wbsApi from "@shared/api/wbs";
 import * as projectsApi from "@shared/api/projects";
@@ -15,6 +16,8 @@ import type { ScheduleTask } from "@shared/api/scheduling";
 import {
   formatWorkingDuration, formatPercentComplete, formatDate, floatStanding, hasCpmResults, toNumber,
 } from "./schedule-logic";
+import { GanttChart, GanttLegend } from "./GanttChart";
+import type { ZoomLevel } from "./gantt-scale";
 import { TaskFormModal } from "./TaskFormModal";
 import { TaskDependenciesPanel } from "./TaskDependenciesPanel";
 
@@ -49,6 +52,12 @@ export function SchedulePage(): JSX.Element {
   const [editing, setEditing] = useState<{ task: ScheduleTask | null } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ScheduleTask | null>(null);
+  const [view, setView] = useState("table");
+  const [zoom, setZoom] = useState<ZoomLevel>("week");
+  // Read once per render of this component rather than inside the chart, so
+  // the chart itself stays a pure function of its props — the same reason its
+  // geometry module takes no clock.
+  const today = new Date().toISOString().slice(0, 10);
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", projectId],
@@ -281,6 +290,22 @@ export function SchedulePage(): JSX.Element {
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {view === "timeline" && (
+                <div className="flex items-center gap-1 rounded border border-neutral-300 p-0.5">
+                  {(["week", "month"] as ZoomLevel[]).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => setZoom(level)}
+                      className={
+                        "rounded px-2 py-0.5 text-xs " +
+                        (zoom === level ? "bg-brand-primary text-white" : "text-neutral-600 hover:bg-neutral-50")
+                      }
+                    >
+                      {level === "week" ? "Weeks" : "Months"}
+                    </button>
+                  ))}
+                </div>
+              )}
               {canUpdate && (
                 <button
                   onClick={() => cpmMutation.mutate()}
@@ -310,6 +335,19 @@ export function SchedulePage(): JSX.Element {
             </div>
           </div>
 
+          {tasks.length > 0 && (
+            <div className="px-4 pt-2">
+              <Tabs
+                tabs={[
+                  { key: "table", label: "Table" },
+                  { key: "timeline", label: "Timeline" },
+                ]}
+                activeKey={view}
+                onChange={setView}
+              />
+            </div>
+          )}
+
           {wbsElements.length === 0 ? (
             <div className="p-8 text-center text-sm text-neutral-500">
               This project has no WBS elements yet, and every task belongs to one. Build the{" "}
@@ -321,6 +359,18 @@ export function SchedulePage(): JSX.Element {
           ) : tasks.length === 0 ? (
             <div className="p-8 text-center text-sm text-neutral-500">
               No tasks yet. {canCreate ? "Create one to start building the schedule." : ""}
+            </div>
+          ) : view === "timeline" ? (
+            <div>
+              <GanttChart
+                tasks={tasks}
+                dependencies={dependencies}
+                zoom={zoom}
+                today={today}
+                selectedTaskId={selectedId}
+                onSelectTask={setSelectedId}
+              />
+              <GanttLegend />
             </div>
           ) : (
             <div className="overflow-x-auto">

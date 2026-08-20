@@ -7,6 +7,7 @@ import { TextInput } from "@shared/components/TextInput";
 import * as projectsApi from "@shared/api/projects";
 import * as calendarsApi from "@shared/api/calendars";
 import * as calendarHierarchyApi from "@shared/api/calendar-hierarchy";
+import { useAuth } from "@shared/auth/AuthContext";
 import type { ProjectFolder, ProjectStatus } from "@shared/api/projects";
 import { ProjectFormFields, emptyProjectForm } from "./ProjectFormFields";
 import type { ProjectFormValues } from "./ProjectFormFields";
@@ -23,6 +24,12 @@ import type { ProjectFormValues } from "./ProjectFormFields";
 export function ProjectSettingsPage(): JSX.Element {
   const { projectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
+  // The enterprise default is platform-wide, not this project's setting, so
+  // only a platform admin is offered it — and it appears here rather than in
+  // an admin console because no admin console exists yet (Epic 2.4), and
+  // leaving the gap open was worse than putting the control where the person
+  // who needs it already is.
+  const { user } = useAuth();
   const [values, setValues] = useState<ProjectFormValues>(emptyProjectForm);
   const [status, setStatus] = useState<ProjectStatus>("active");
   const [folders, setFolders] = useState<ProjectFolder[]>([]);
@@ -70,6 +77,30 @@ export function ProjectSettingsPage(): JSX.Element {
   useEffect(() => {
     if (foldersQuery.data) setFolders(foldersQuery.data);
   }, [foldersQuery.data]);
+
+  const enterpriseCalendarQuery = useQuery({
+    queryKey: ["enterprise-calendar"],
+    queryFn: calendarHierarchyApi.getEnterpriseDefaultCalendar,
+  });
+
+  const enterpriseCalendarMutation = useMutation({
+    mutationFn: (calendarId: string) =>
+      calendarHierarchyApi.setEnterpriseDefaultCalendar(calendarId === "" ? null : calendarId),
+    onSuccess: () => {
+      setNotice({
+        kind: "info",
+        text:
+          "Enterprise default calendar set. Every project without its own assignment now inherits this one, " +
+          "including projects created from here on.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["enterprise-calendar"] });
+    },
+    onError: (error) =>
+      setNotice({
+        kind: "error",
+        text: error instanceof Error ? error.message : "Couldn't set the enterprise default calendar.",
+      }),
+  });
 
   const calendarMutation = useMutation({
     mutationFn: (calendarId: string) =>
@@ -230,6 +261,24 @@ export function ProjectSettingsPage(): JSX.Element {
                   : "No calendar assigned yet, so this project can't be scheduled."
               }
             />
+          )}
+
+          {user?.is_platform_admin && (
+            <div className="mt-2 border-t border-neutral-200 pt-4">
+              <Select
+                label="Enterprise default calendar (platform-wide)"
+                placeholder="— none set —"
+                options={(calendarsQuery.data ?? []).map((c) => ({ value: c.calendar_id, label: c.name }))}
+                value={enterpriseCalendarQuery.data?.calendarId ?? ""}
+                disabled={enterpriseCalendarMutation.isPending}
+                onChange={(e) => enterpriseCalendarMutation.mutate(e.target.value)}
+                helperText={
+                  enterpriseCalendarQuery.data?.calendarId
+                    ? "The fallback for any project, resource or task with no calendar of its own."
+                    : "Nothing is set, so a new project can't be scheduled until someone assigns it a calendar by hand. Setting one here fixes that for every project at once."
+                }
+              />
+            </div>
           )}
         </div>
       </section>
