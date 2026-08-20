@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildTree, flattenVisible, idsWithChildren, ancestorIds, descendantIds, validMoveTargets,
+  compareWbsCodes,
 } from "../wbs-tree";
 import type { WbsNodeLike } from "../wbs-tree";
 
@@ -45,6 +46,46 @@ describe("buildTree", () => {
     const orphaned = [element("x", "missing-parent", "9", "Orphaned Element")];
     const roots = buildTree(orphaned);
     expect(roots.map((r) => r.element.wbs_id)).toEqual(["x"]);
+  });
+});
+
+describe("compareWbsCodes", () => {
+  it("sorts 1.2 before 1.10, the way string comparison does not", () => {
+    expect(compareWbsCodes("1.2", "1.10")).toBeLessThan(0);
+    expect(["1.10", "1.2", "1.1"].sort(compareWbsCodes)).toEqual(["1.1", "1.2", "1.10"]);
+  });
+
+  it("sorts a parent before its own child", () => {
+    expect(compareWbsCodes("1.2", "1.2.1")).toBeLessThan(0);
+  });
+
+  it("orders whole levels correctly, not just the last segment", () => {
+    expect(["2.1", "1.9", "1.11", "10.1"].sort(compareWbsCodes)).toEqual(["1.9", "1.11", "2.1", "10.1"]);
+  });
+
+  it("falls back to string comparison for a non-numeric segment", () => {
+    expect(["1.B", "1.A"].sort(compareWbsCodes)).toEqual(["1.A", "1.B"]);
+  });
+
+  it("treats identical codes as equal", () => {
+    expect(compareWbsCodes("1.2.3", "1.2.3")).toBe(0);
+  });
+});
+
+describe("buildTree sibling ordering", () => {
+  // The server returns these in its own string order (1.1, 1.10, 1.2) — the
+  // tree has to correct that, or a WBS with ten or more children under one
+  // parent displays in the wrong order.
+  const wide: WbsNodeLike[] = [
+    element("r", null, "1", "Root"),
+    element("c10", "r", "1.10", "Tenth"),
+    element("c2", "r", "1.2", "Second"),
+    element("c1", "r", "1.1", "First"),
+  ];
+
+  it("puts 1.2 ahead of 1.10 regardless of input order", () => {
+    const roots = buildTree(wide);
+    expect(roots[0].children.map((c) => c.element.code)).toEqual(["1.1", "1.2", "1.10"]);
   });
 });
 

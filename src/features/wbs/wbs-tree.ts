@@ -34,10 +34,40 @@ export interface WbsRow<T extends WbsNodeLike> {
   isExpanded: boolean;
 }
 
-// Builds the nested tree from the flat list, preserving the order the
-// backend supplied within each sibling group (that order is the
-// materialized WBS code order — resorting it here would just risk
-// disagreeing with the numbering the server assigned).
+// Compares two WBS codes the way a person reads them: 1.2 before 1.10,
+// not after it.
+//
+// This exists because the server orders the tree by the materialized code
+// string, and string ordering puts "1.10" before "1.2" — correct
+// alphabetically, wrong for a work breakdown structure, and visible the
+// moment any parent has ten or more children. Codes in this application
+// are always server-generated as dot-separated positions (service.js's
+// childCode), so comparing segment by segment as numbers is safe; a
+// segment that isn't numeric falls back to plain string comparison rather
+// than silently sorting as zero.
+export function compareWbsCodes(a: string, b: string): number {
+  const left = a.split(".");
+  const right = b.split(".");
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    const l = left[i];
+    const r = right[i];
+    if (l === undefined) return -1; // "1.2" sorts before "1.2.1"
+    if (r === undefined) return 1;
+    const ln = Number(l);
+    const rn = Number(r);
+    const bothNumeric = l !== "" && r !== "" && Number.isFinite(ln) && Number.isFinite(rn);
+    if (bothNumeric) {
+      if (ln !== rn) return ln - rn;
+    } else if (l !== r) {
+      return l < r ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
+// Builds the nested tree from the flat list, sorting each sibling group by
+// WBS code numerically (see compareWbsCodes above for why the server's own
+// string ordering isn't sufficient).
 //
 // One honest edge case, handled rather than assumed away: an element whose
 // parent_wbs_id points at something not present in the list (a parent
@@ -60,6 +90,13 @@ export function buildTree<T extends WbsNodeLike>(elements: T[]): WbsTreeNode<T>[
       roots.push(node);
     }
   }
+
+  const sortByCode = (nodes: WbsTreeNode<T>[]) => {
+    nodes.sort((x, y) => compareWbsCodes(x.element.code, y.element.code));
+    for (const node of nodes) sortByCode(node.children);
+  };
+  sortByCode(roots);
+
   return roots;
 }
 
