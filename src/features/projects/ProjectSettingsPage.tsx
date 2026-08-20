@@ -5,6 +5,8 @@ import { Settings, Info, X, Save } from "lucide-react";
 import { Select } from "@shared/components/Select";
 import { TextInput } from "@shared/components/TextInput";
 import * as projectsApi from "@shared/api/projects";
+import * as calendarsApi from "@shared/api/calendars";
+import * as calendarHierarchyApi from "@shared/api/calendar-hierarchy";
 import type { ProjectFolder, ProjectStatus } from "@shared/api/projects";
 import { ProjectFormFields, emptyProjectForm } from "./ProjectFormFields";
 import type { ProjectFormValues } from "./ProjectFormFields";
@@ -33,6 +35,19 @@ export function ProjectSettingsPage(): JSX.Element {
     enabled: !!projectId,
   });
   const foldersQuery = useQuery({ queryKey: ["project-folders"], queryFn: projectsApi.listFolders });
+  // 9.4.1.1.1 — the calendar the scheduling engine actually reads. Separate
+  // from the calendars that merely belong to this project, which is the
+  // distinction that made every new project unschedulable.
+  const calendarsQuery = useQuery({
+    queryKey: ["calendars", projectId],
+    queryFn: () => calendarsApi.listCalendars(projectId as string),
+    enabled: !!projectId,
+  });
+  const assignedCalendarQuery = useQuery({
+    queryKey: ["project-calendar", projectId],
+    queryFn: () => calendarHierarchyApi.getProjectCalendar(projectId as string),
+    enabled: !!projectId,
+  });
   const tagsQuery = useQuery({ queryKey: ["project-tags"], queryFn: projectsApi.listTags });
 
   // Seed the form from the loaded project exactly once — re-seeding on every
@@ -55,6 +70,23 @@ export function ProjectSettingsPage(): JSX.Element {
   useEffect(() => {
     if (foldersQuery.data) setFolders(foldersQuery.data);
   }, [foldersQuery.data]);
+
+  const calendarMutation = useMutation({
+    mutationFn: (calendarId: string) =>
+      calendarHierarchyApi.setProjectCalendar(projectId as string, calendarId === "" ? null : calendarId),
+    onSuccess: () => {
+      setNotice({
+        kind: "info",
+        text: "Scheduling calendar set. The schedule can now be calculated for this project.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["project-calendar", projectId] });
+    },
+    onError: (error) =>
+      setNotice({
+        kind: "error",
+        text: error instanceof Error ? error.message : "Couldn't set that calendar.",
+      }),
+  });
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -166,6 +198,39 @@ export function ProjectSettingsPage(): JSX.Element {
               <Save size={14} /> {saveMutation.isPending ? "Saving..." : "Save settings"}
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded bg-white shadow-elevation-1">
+        <div className="border-b border-neutral-200 px-4 py-3">
+          <h2 className="text-base font-semibold text-neutral-800">Scheduling calendar</h2>
+        </div>
+        <div className="flex flex-col gap-3 p-4">
+          <p className="text-sm text-neutral-600">
+            Which calendar the schedule engine counts working days against (9.4.1.1.1). Tasks inherit this
+            unless they set their own. Without it the critical path can&apos;t be calculated at all — the
+            engine has no way to know which days are working days.
+          </p>
+          {(calendarsQuery.data ?? []).length === 0 ? (
+            <p className="text-sm text-status-warning">
+              This project has no calendars yet. Create one from the Calendar module first, then come back
+              and assign it here.
+            </p>
+          ) : (
+            <Select
+              label="Calendar"
+              placeholder="— none assigned —"
+              options={(calendarsQuery.data ?? []).map((c) => ({ value: c.calendar_id, label: c.name }))}
+              value={assignedCalendarQuery.data?.calendarId ?? ""}
+              disabled={calendarMutation.isPending}
+              onChange={(e) => calendarMutation.mutate(e.target.value)}
+              helperText={
+                assignedCalendarQuery.data?.calendarId
+                  ? "Saved as soon as you choose — this one setting is what makes a project schedulable."
+                  : "No calendar assigned yet, so this project can't be scheduled."
+              }
+            />
+          )}
         </div>
       </section>
 

@@ -10,6 +10,7 @@ import { Modal } from "@shared/components/Modal";
 import * as schedulingApi from "@shared/api/scheduling";
 import * as wbsApi from "@shared/api/wbs";
 import * as projectsApi from "@shared/api/projects";
+import * as calendarHierarchyApi from "@shared/api/calendar-hierarchy";
 import type { ScheduleTask } from "@shared/api/scheduling";
 import {
   formatWorkingDuration, formatPercentComplete, formatDate, floatStanding, hasCpmResults, toNumber,
@@ -69,6 +70,19 @@ export function SchedulePage(): JSX.Element {
     queryFn: () => projectsApi.getProject(projectId as string),
     enabled: !!projectId,
   });
+  // The engine needs a calendar to count working days against. A project can
+  // own calendars without having one assigned — and every project created
+  // through this application starts that way — so this is checked up front
+  // rather than discovered as a failed calculation.
+  const assignedCalendarQuery = useQuery({
+    queryKey: ["project-calendar", projectId],
+    queryFn: () => calendarHierarchyApi.getProjectCalendar(projectId as string),
+    enabled: !!projectId,
+  });
+  const enterpriseCalendarQuery = useQuery({
+    queryKey: ["enterprise-calendar"],
+    queryFn: calendarHierarchyApi.getEnterpriseDefaultCalendar,
+  });
 
   const tasks = useMemo<ScheduleTask[]>(() => tasksQuery.data ?? [], [tasksQuery.data]);
   const dependencies = useMemo(() => dependenciesQuery.data ?? [], [dependenciesQuery.data]);
@@ -78,6 +92,13 @@ export function SchedulePage(): JSX.Element {
   const wbsCodeOf = (wbsId: string) => wbsElements.find((w) => w.wbs_id === wbsId)?.code ?? "";
   const projectStartDate = projectQuery.data?.start_date ?? null;
   const calculated = hasCpmResults(tasks);
+  // Resolved exactly the way the backend resolves it: the project's own
+  // assignment, else the enterprise default. (A task may override with its
+  // own calendar, which is why this is "can the project schedule at all".)
+  const calendarsResolved = !assignedCalendarQuery.isLoading && !enterpriseCalendarQuery.isLoading;
+  const hasCalendar =
+    !!assignedCalendarQuery.data?.calendarId || !!enterpriseCalendarQuery.data?.calendarId;
+  const canCalculate = !!projectStartDate && (hasCalendar || !calendarsResolved);
 
   function invalidateSchedule() {
     queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
@@ -228,6 +249,19 @@ export function SchedulePage(): JSX.Element {
         </div>
       )}
 
+      {calendarsResolved && !hasCalendar && (
+        <div className="rounded border border-status-warning/30 bg-status-warning/5 p-3 text-sm text-status-warning">
+          This project has no scheduling calendar assigned, so the critical path can&apos;t be calculated —
+          the engine counts working days, and without a calendar it has no way to know which days those are.
+          Assign one in{" "}
+          <Link to={`/projects/${projectId}/settings`} className="underline">
+            project settings
+          </Link>
+          . Note that a calendar <em>belonging to</em> this project isn&apos;t the same as one{" "}
+          <em>assigned to</em> it — the assignment is what the engine reads.
+        </div>
+      )}
+
       {readOnly && (
         <div className="rounded border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-600">
           {readOnlyReason(user?.role_name, "the schedule")} You can review tasks, dependencies and calculated
@@ -250,9 +284,15 @@ export function SchedulePage(): JSX.Element {
               {canUpdate && (
                 <button
                   onClick={() => cpmMutation.mutate()}
-                  disabled={isSaving || !projectStartDate || tasks.length === 0}
+                  disabled={isSaving || !canCalculate || tasks.length === 0}
                   className="flex items-center gap-1 rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50"
-                  title={projectStartDate ? "Run the critical path calculation" : "Needs a project start date"}
+                  title={
+                    !projectStartDate
+                      ? "Needs a project start date"
+                      : !hasCalendar
+                        ? "Needs a scheduling calendar assigned to the project"
+                        : "Run the critical path calculation"
+                  }
                 >
                   <Play size={14} /> {cpmMutation.isPending ? "Calculating..." : "Calculate schedule"}
                 </button>
