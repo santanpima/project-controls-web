@@ -53,6 +53,39 @@ function buildUrl(path: string, query?: RequestOptions["query"]): string {
   return url.toString();
 }
 
+// Not every endpoint answers with JSON: the OBS bulk export (8.1.1.2.2)
+// responds with text/csv, which apiRequest below would try to parse and
+// hand back as null. This keeps the same auth header, 401 handling and
+// error shape, and simply returns the body as text.
+export async function apiRequestText(path: string, options: RequestOptions = {}): Promise<string> {
+  const { method = "GET", body, query } = options;
+  const token = getToken();
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(buildUrl(path, query), {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  if (response.status === 401) onUnauthorized();
+
+  const text = await response.text();
+  if (!response.ok) {
+    let message = `Request to ${path} failed with status ${response.status}`;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object" && "error" in parsed) message = String(parsed.error);
+    } catch {
+      // A non-JSON error body is left as the generic message above.
+    }
+    throw new ApiError(response.status, message, text);
+  }
+  return text;
+}
+
 export async function apiRequest<TResponse>(
   path: string,
   options: RequestOptions = {}

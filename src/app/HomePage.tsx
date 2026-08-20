@@ -1,44 +1,155 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FolderOpen, Plus } from "lucide-react";
 import { useAuth } from "@shared/auth/AuthContext";
+import { Modal } from "@shared/components/Modal";
+import { TextInput } from "@shared/components/TextInput";
+import * as projectsApi from "@shared/api/projects";
+import type { Project, ProjectStatus } from "@shared/api/projects";
 
-// A genuine placeholder, not a real module screen — every actual feature
-// module (WBS, Calendar, Cost, Scheduling, and the rest) still needs its
-// own screen built. This exists so RequireAuth has something real to land
-// on after sign-in, proving the auth + shell pattern end-to-end before any
-// grid- or Gantt-heavy module is attempted. Lives in src/app rather than a
-// feature folder — it isn't content owned by any one module.
+// 5.1.2.1.1 — the real project list, replacing the placeholder that linked to
+// a literal "demo" project id. Until now every module screen could only be
+// reached by typing a project's UUID into the address bar, which was the most
+// awkward gap left in the application.
+//
+// Deliberately a list rather than the sortable/filterable grid that item
+// ultimately calls for: no data-grid component exists in this application yet,
+// and sorting a handful of projects isn't what makes that component worth
+// building. The grid remains that item's own job.
+
+const STATUS_STYLES: Record<ProjectStatus, string> = {
+  active: "bg-status-success/10 text-status-success",
+  on_hold: "bg-status-warning/10 text-status-warning",
+  completed: "bg-status-info/10 text-status-info",
+  archived: "bg-neutral-100 text-neutral-500",
+};
+
+function formatDateRange(project: Project): string {
+  if (!project.start_date && !project.end_date) return "No dates set";
+  const start = project.start_date ? project.start_date.slice(0, 10) : "—";
+  const end = project.end_date ? project.end_date.slice(0, 10) : "—";
+  return `${start} to ${end}`;
+}
+
 export function HomePage(): JSX.Element {
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const projectsQuery = useQuery({ queryKey: ["projects"], queryFn: projectsApi.listProjects });
+
+  const createMutation = useMutation({
+    mutationFn: (name: string) => projectsApi.createProject({ name }),
+    onSuccess: () => {
+      setCreating(false);
+      setNewName("");
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Couldn't create that project."),
+  });
+
+  const projects = projectsQuery.data ?? [];
 
   return (
-    <div className="p-8">
-      <h1 className="text-xl font-semibold text-brand-primary">
-        Welcome{user?.first_name ? `, ${user.first_name}` : ""}
-      </h1>
-      <p className="mt-2 text-neutral-600">
-        Signed in as {user?.email}. Module screens (WBS, Calendar, Cost, Scheduling, and the
-        rest) haven&apos;t been built yet — this page exists to prove sign-in and the app shell
-        work end-to-end first.
-      </p>
-      {/* No real Projects list exists yet — no frontend work has been done
-          for creating or browsing projects, only the backend API for it.
-          This link deliberately uses a literal "demo" projectId so the
-          real navigation shell (NavBar, SidePanel, Breadcrumbs, all ten
-          module routes) can actually be reached, clicked through, and
-          tested end to end, without faking a project-picker that doesn't
-          exist yet. */}
-      <Link
-        to="/projects/demo/wbs"
-        className="mt-4 inline-block rounded bg-brand-primary text-white px-4 py-2 text-sm font-medium"
-      >
-        View demo project shell
-      </Link>
-      <button
-        onClick={signOut}
-        className="mt-6 ml-3 rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700"
-      >
-        Sign out
-      </button>
+    <div className="mx-auto max-w-4xl p-8">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-brand-primary">
+            Welcome{user?.first_name ? `, ${user.first_name}` : ""}
+          </h1>
+          <p className="mt-1 text-sm text-neutral-600">Signed in as {user?.email}</p>
+        </div>
+        <button
+          onClick={signOut}
+          className="rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
+        >
+          Sign out
+        </button>
+      </div>
+
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-neutral-800">Projects</h2>
+        <button
+          onClick={() => setCreating(true)}
+          className="flex items-center gap-1 rounded bg-brand-primary px-3 py-2 text-sm font-medium text-white"
+        >
+          <Plus size={16} /> New project
+        </button>
+      </div>
+
+      {error && (
+        <div className="mt-3 rounded border border-status-error/30 bg-status-error/5 p-3 text-sm text-status-error">
+          {error}
+        </div>
+      )}
+
+      {projectsQuery.isLoading ? (
+        <div className="mt-4 text-sm text-neutral-500">Loading projects...</div>
+      ) : projectsQuery.isError ? (
+        <div className="mt-4 rounded border border-status-error/30 bg-status-error/5 p-4 text-sm text-status-error">
+          Couldn&apos;t load your projects. {(projectsQuery.error as Error)?.message}
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="mt-4 rounded border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">
+          No projects yet. Create one to start building a WBS, an org chart, and a schedule.
+        </div>
+      ) : (
+        <ul className="mt-4 divide-y divide-neutral-100 rounded bg-white shadow-elevation-1">
+          {projects.map((project) => (
+            <li key={project.project_id}>
+              {/* Landing on WBS deliberately: it's the structure every other
+                  module keys off, and one of the two modules with a real
+                  screen today. */}
+              <Link
+                to={`/projects/${project.project_id}/wbs`}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50"
+              >
+                <FolderOpen size={18} className="shrink-0 text-brand-accent" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-neutral-800">{project.name}</div>
+                  <div className="text-xs text-neutral-500">
+                    {formatDateRange(project)} · {project.base_currency}
+                  </div>
+                </div>
+                <span className={"rounded px-1.5 py-0.5 text-xs font-medium " + STATUS_STYLES[project.status]}>
+                  {projectsApi.PROJECT_STATUSES.find((s) => s.value === project.status)?.label ?? project.status}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Modal open={creating} onClose={() => setCreating(false)} title="New project">
+        <div className="flex flex-col gap-4">
+          <TextInput
+            label="Project name"
+            required
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            helperText="Dates, currency and the rest can be set later — only a name is required to start."
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => createMutation.mutate(newName.trim())}
+              disabled={createMutation.isPending || newName.trim() === ""}
+              className="rounded bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {createMutation.isPending ? "Creating..." : "Create project"}
+            </button>
+            <button
+              onClick={() => setCreating(false)}
+              className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

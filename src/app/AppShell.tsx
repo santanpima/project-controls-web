@@ -1,4 +1,6 @@
 import { Outlet, useParams, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import * as projectsApi from "@shared/api/projects";
 import { NavBar } from "@shared/components/NavBar";
 import { SidePanel } from "@shared/components/SidePanel";
 import { Breadcrumbs, BreadcrumbSegment } from "@shared/components/Breadcrumbs";
@@ -19,14 +21,16 @@ export function AppShell(): JSX.Element {
   const currentModuleLabel = MODULE_LABELS_BY_PATH[currentModulePath] ?? "";
 
   // Breadcrumb pattern per 4.3.1.1.1: "Project Name → Module → drill-down
-  // path." No project-name lookup exists yet — there's no Projects list or
-  // fetch-by-id frontend work done at this point, only the backend API for
-  // it — so this honestly shows the raw projectId rather than inventing a
-  // fake name. Deeper tree drill-down segments (WBS/OBS) get appended by
-  // those module screens themselves once they exist; this component
-  // doesn't need to know about that in advance.
+  // path." The project name is real now that a project list exists; it
+  // falls back to the raw id while the list is still loading, rather than
+  // rendering an empty crumb. Deeper tree drill-down segments (WBS/OBS) get
+  // appended by those module screens themselves once they exist; this
+  // component doesn't need to know about that in advance.
+  const projectsQuery = useQuery({ queryKey: ["projects"], queryFn: projectsApi.listProjects });
+  const projectName = projectsQuery.data?.find((p) => p.project_id === projectId)?.name;
+
   const breadcrumbSegments: BreadcrumbSegment[] = [
-    { label: projectId ?? "Project", path: basePath },
+    { label: projectName ?? projectId ?? "Project", path: basePath },
     ...(currentModuleLabel ? [{ label: currentModuleLabel }] : []),
   ];
 
