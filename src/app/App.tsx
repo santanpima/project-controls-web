@@ -6,6 +6,7 @@ import { NAV_STRUCTURE } from "@shared/ui/nav-structure";
 import { LoginPage } from "@features/auth/LoginPage";
 import { RegisterPage } from "@features/auth/RegisterPage";
 import { CalendarPage } from "@features/calendars/CalendarPage";
+import { WbsPage } from "@features/wbs/WbsPage";
 import { HomePage } from "./HomePage";
 import { AppShell } from "./AppShell";
 import { ModulePlaceholderPage } from "./ModulePlaceholderPage";
@@ -14,12 +15,13 @@ import { ModulePlaceholderPage } from "./ModulePlaceholderPage";
 // genuinely exist, scoped under /projects/:projectId/{module} exactly as
 // specified, rendering inside the real AppShell (4.3.1.1.2) rather than
 // standalone — every module in the real navigation structure (4.3.1.1.1)
-// is reachable and shows the actual shell. Calendar is now a real screen
-// (9.1.2.2.1); every other module still renders the honest placeholder
-// until that screen's own work is built.
+// is reachable and shows the actual shell. Calendar (9.1.2.2.1) and WBS
+// (7.1.1.2.1 / 7.1.2.1.2) are now real screens; every other module still
+// renders the honest placeholder until that screen's own work is built.
 const ALL_MODULE_PATHS = NAV_STRUCTURE.flatMap((section) => section.modules.map((m) => m.path));
 const REAL_MODULE_SCREENS: Record<string, () => JSX.Element> = {
   calendars: CalendarPage,
+  wbs: WbsPage,
 };
 
 export function App(): JSX.Element {
