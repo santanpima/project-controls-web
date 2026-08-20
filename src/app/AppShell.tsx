@@ -18,7 +18,8 @@ export function AppShell(): JSX.Element {
 
   const basePath = `/projects/${projectId}`;
   const currentModulePath = location.pathname.split("/")[3]; // /projects/:id/{module}
-  const currentModuleLabel = MODULE_LABELS_BY_PATH[currentModulePath] ?? "";
+  const currentModuleLabel =
+    MODULE_LABELS_BY_PATH[currentModulePath] ?? (currentModulePath === "settings" ? "Settings" : "");
 
   // Breadcrumb pattern per 4.3.1.1.1: "Project Name → Module → drill-down
   // path." The project name is real now that a project list exists; it

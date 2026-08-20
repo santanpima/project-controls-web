@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderOpen, Plus } from "lucide-react";
 import { useAuth } from "@shared/auth/AuthContext";
 import { Modal } from "@shared/components/Modal";
-import { TextInput } from "@shared/components/TextInput";
+import { Select } from "@shared/components/Select";
 import * as projectsApi from "@shared/api/projects";
-import type { Project, ProjectStatus } from "@shared/api/projects";
+import type { Project, ProjectFolder, ProjectStatus } from "@shared/api/projects";
+import { ProjectFormFields, emptyProjectForm, toCreateInput } from "@features/projects/ProjectFormFields";
+import type { ProjectFormValues } from "@features/projects/ProjectFormFields";
 
 // 5.1.2.1.1 — the real project list, replacing the placeholder that linked to
 // a literal "demo" project id. Until now every module screen could only be
@@ -36,16 +38,34 @@ export function HomePage(): JSX.Element {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [form, setForm] = useState<ProjectFormValues>(emptyProjectForm);
+  const [templateId, setTemplateId] = useState("");
+  const [folders, setFolders] = useState<ProjectFolder[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const projectsQuery = useQuery({ queryKey: ["projects"], queryFn: projectsApi.listProjects });
+  const foldersQuery = useQuery({ queryKey: ["project-folders"], queryFn: projectsApi.listFolders });
+  const tagsQuery = useQuery({ queryKey: ["project-tags"], queryFn: projectsApi.listTags });
+  const templatesQuery = useQuery({ queryKey: ["project-templates"], queryFn: projectsApi.listTemplates });
+
+  useEffect(() => {
+    if (foldersQuery.data) setFolders(foldersQuery.data);
+  }, [foldersQuery.data]);
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => projectsApi.createProject({ name }),
+    // 5.1.1.1.1 — creating from a template and creating from scratch are two
+    // different endpoints, not one endpoint with a flag, so the choice is made
+    // here rather than pushed into the request body.
+    mutationFn: () => {
+      const input = toCreateInput(form);
+      return templateId === ""
+        ? projectsApi.createProject(input)
+        : projectsApi.createProjectFromTemplate(Number(templateId), input);
+    },
     onSuccess: () => {
       setCreating(false);
-      setNewName("");
+      setForm(emptyProjectForm);
+      setTemplateId("");
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
@@ -53,6 +73,8 @@ export function HomePage(): JSX.Element {
   });
 
   const projects = projectsQuery.data ?? [];
+  const folderName = (id: number | null) =>
+    id === null ? null : (folders.find((f) => f.folder_id === id)?.name ?? null);
 
   return (
     <div className="mx-auto max-w-4xl p-8">
@@ -113,6 +135,7 @@ export function HomePage(): JSX.Element {
                   <div className="truncate text-sm font-medium text-neutral-800">{project.name}</div>
                   <div className="text-xs text-neutral-500">
                     {formatDateRange(project)} · {project.base_currency}
+                    {folderName(project.folder_id) ? ` · ${folderName(project.folder_id)}` : ""}
                   </div>
                 </div>
                 <span className={"rounded px-1.5 py-0.5 text-xs font-medium " + STATUS_STYLES[project.status]}>
@@ -125,18 +148,31 @@ export function HomePage(): JSX.Element {
       )}
 
       <Modal open={creating} onClose={() => setCreating(false)} title="New project">
-        <div className="flex flex-col gap-4">
-          <TextInput
-            label="Project name"
-            required
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            helperText="Dates, currency and the rest can be set later — only a name is required to start."
+        <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+          <ProjectFormFields
+            values={form}
+            onChange={setForm}
+            folders={folders}
+            tags={tagsQuery.data ?? []}
+            onFolderCreated={(folder) => setFolders((previous) => [...previous, folder])}
           />
+          {(templatesQuery.data ?? []).length > 0 && (
+            <Select
+              label="Start from a template"
+              placeholder="— empty project —"
+              options={(templatesQuery.data ?? []).map((t) => ({
+                value: String(t.template_id),
+                label: t.name,
+              }))}
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              helperText="A template carries WBS and OBS structure only — no costs, resources or dates."
+            />
+          )}
           <div className="flex gap-2">
             <button
-              onClick={() => createMutation.mutate(newName.trim())}
-              disabled={createMutation.isPending || newName.trim() === ""}
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || form.name.trim() === ""}
               className="rounded bg-brand-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {createMutation.isPending ? "Creating..." : "Create project"}

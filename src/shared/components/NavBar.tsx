@@ -1,14 +1,20 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, ChevronDown, LogOut, Check, FolderOpen } from "lucide-react";
+import { Menu, ChevronDown, LogOut, Check, FolderOpen, LayoutGrid, Settings } from "lucide-react";
 import { useAuth } from "@shared/auth/AuthContext";
 import { useUI } from "@shared/ui/UIContext";
 import * as projectsApi from "@shared/api/projects";
 
-// 4.2.2.1.3 — "No role-based menu items — consistent with the full-access,
-// no-in-app-RBAC model (ADR-001)." Every signed-in user sees the identical
-// NavBar; there's nothing here to conditionally show or hide by role.
+// 4.2.2.1.3's own wording — "no role-based menu items, consistent with the
+// full-access, no-in-app-RBAC model (ADR-001)" — reasons from a framing the
+// project has since superseded: ADR-001's single-access-level scope was
+// explicitly replaced when Theme 2 reintroduced real roles and permissions.
+// The NavBar still shows the same items to everyone, but now for a defensible
+// reason rather than that one: nothing in it is an action a role could lack.
+// Where a role genuinely changes what's possible — creating, editing and
+// deleting inside a module — the module screens themselves decide (2.2.1.2.2),
+// against the permission list the API now returns.
 export function NavBar(): JSX.Element {
   const { user, signOut } = useAuth();
   const { toggleSidebar, sidebarCollapsed, mobileNavOpen, setMobileNavOpen } = useUI();
@@ -57,7 +63,12 @@ export function NavBar(): JSX.Element {
         >
           <Menu size={20} />
         </button>
-        <span className="font-semibold text-lg tracking-tight">Project Controls</span>
+        {/* The way back to the project list. Without this, a person inside a
+            project could only reach it by editing the URL — the switcher lists
+            existing projects but offers no route to creating one. */}
+        <Link to="/" className="font-semibold text-lg tracking-tight hover:text-white/90">
+          Project Controls
+        </Link>
       </div>
 
       {/* Project switcher (4.2.2.1.3) — now wired to the real project list.
@@ -88,6 +99,13 @@ export function NavBar(): JSX.Element {
               role="listbox"
               className="absolute left-1/2 z-50 mt-1 max-h-80 w-72 -translate-x-1/2 overflow-y-auto rounded bg-white py-1 text-neutral-900 shadow-elevation-2"
             >
+              <Link
+                to="/"
+                onClick={() => setProjectMenuOpen(false)}
+                className="flex items-center gap-2 border-b border-neutral-100 px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
+              >
+                <LayoutGrid size={14} /> All projects
+              </Link>
               {projects.length === 0 ? (
                 <div className="px-4 py-2 text-sm text-neutral-500">
                   No projects yet — create one from the home page.
@@ -113,6 +131,17 @@ export function NavBar(): JSX.Element {
         </div>
       </div>
 
+      <div className="flex items-center gap-1">
+        {currentProjectId && (
+          <Link
+            to={`/projects/${currentProjectId}/settings`}
+            className="rounded p-2 hover:bg-white/10"
+            title="Project settings"
+            aria-label="Project settings"
+          >
+            <Settings size={18} />
+          </Link>
+        )}
       <div className="relative">
         <button
           className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
@@ -136,6 +165,7 @@ export function NavBar(): JSX.Element {
             </button>
           </div>
         )}
+      </div>
       </div>
     </header>
   );

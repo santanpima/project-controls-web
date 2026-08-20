@@ -9,6 +9,13 @@ export interface User {
   last_name: string | null;
   role_id: number | null;
   is_platform_admin: boolean;
+  // 2.2.1.2.2 — the role's name and its exact "{module}:{action}" grants,
+  // returned by both /auth/login and /auth/me. Optional in the type on
+  // purpose: a session issued before this field existed simply has no list,
+  // and the permission helper fails closed on that rather than assuming
+  // access.
+  role_name?: string | null;
+  permissions?: string[] | null;
   is_active: boolean;
   is_verified: boolean;
   last_login_at: string | null;

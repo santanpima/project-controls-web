@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown, ChevronRight, Plus, Users2, Pencil, Trash2, Download, Upload, Info, X,
 } from "lucide-react";
+import { useAuth } from "@shared/auth/AuthContext";
+import { readOnlyReason } from "@shared/auth/permissions";
 import { Modal } from "@shared/components/Modal";
 import { TextInput } from "@shared/components/TextInput";
 import { Select } from "@shared/components/Select";
@@ -53,6 +55,14 @@ type Notice = { kind: "info" | "error"; text: string } | null;
 export function ObsPage(): JSX.Element {
   const { projectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
+  // 2.2.1.2.2 — the same capability check the WBS screen makes, against this
+  // module's own grants: a scheduler, for instance, edits WBS but only reads
+  // OBS, so the two screens genuinely differ for the same person.
+  const { user, can } = useAuth();
+  const canCreate = can("obs", "create");
+  const canUpdate = can("obs", "update");
+  const canDelete = can("obs", "delete");
+  const readOnly = !canCreate && !canUpdate && !canDelete;
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<Notice>(null);
@@ -217,6 +227,13 @@ export function ObsPage(): JSX.Element {
         </div>
       )}
 
+      {readOnly && (
+        <div className="rounded border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-600">
+          {readOnlyReason(user?.role_name, "the organizational breakdown structure")} You can browse the org
+          chart and export it; changing it needs a role with edit access.
+        </div>
+      )}
+
       <section className="rounded bg-white shadow-elevation-1">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-4 py-3">
           <div className="flex items-center gap-2">
@@ -239,12 +256,14 @@ export function ObsPage(): JSX.Element {
             >
               Collapse all
             </button>
+            {canCreate && (
             <button
               onClick={() => { setImportFailure(null); setCsvOpen(true); }}
               className="flex items-center gap-1 rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-50"
             >
               <Upload size={14} /> Import CSV
             </button>
+            )}
             <button
               onClick={() => exportMutation.mutate()}
               disabled={exportMutation.isPending || orgs.length === 0}
@@ -252,19 +271,23 @@ export function ObsPage(): JSX.Element {
             >
               <Download size={14} /> {exportMutation.isPending ? "Exporting..." : "Export CSV"}
             </button>
-            <button
-              onClick={() => setEditing({ org: null, parent: null })}
-              className="flex items-center gap-1 rounded bg-brand-primary px-2 py-1 text-xs font-medium text-white"
-            >
-              <Plus size={14} /> Top-level organization
-            </button>
+            {canCreate && (
+              <button
+                onClick={() => setEditing({ org: null, parent: null })}
+                className="flex items-center gap-1 rounded bg-brand-primary px-2 py-1 text-xs font-medium text-white"
+              >
+                <Plus size={14} /> Top-level organization
+              </button>
+            )}
           </div>
         </div>
 
         {orgs.length === 0 ? (
           <div className="p-8 text-center text-sm text-neutral-500">
-            This project has no organizations yet. Create a top-level organization, or import an existing org
-            chart from a CSV file.
+            This project has no organizations yet.{" "}
+            {canCreate
+              ? "Create a top-level organization, or import an existing org chart from a CSV file."
+              : ""}
           </div>
         ) : (
           <ul className="divide-y divide-neutral-100">
@@ -293,6 +316,7 @@ export function ObsPage(): JSX.Element {
                   <OrgTypeBadge type={row.element.type} />
                 </div>
 
+                {canUpdate && (
                 <button
                   onClick={() => setEditing({ org: row.element, parent: null })}
                   className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
@@ -301,6 +325,8 @@ export function ObsPage(): JSX.Element {
                 >
                   <Pencil size={14} />
                 </button>
+                )}
+                {canCreate && (
                 <button
                   onClick={() => setEditing({ org: null, parent: row.element })}
                   className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
@@ -309,6 +335,8 @@ export function ObsPage(): JSX.Element {
                 >
                   <Plus size={14} />
                 </button>
+                )}
+                {canDelete && (
                 <button
                   onClick={() => setPendingDelete(row.element)}
                   className="rounded p-1 text-neutral-400 hover:bg-status-error/10 hover:text-status-error"
@@ -317,6 +345,7 @@ export function ObsPage(): JSX.Element {
                 >
                   <Trash2 size={14} />
                 </button>
+                )}
               </li>
             ))}
           </ul>

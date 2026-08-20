@@ -8,6 +8,7 @@ import { RegisterPage } from "@features/auth/RegisterPage";
 import { CalendarPage } from "@features/calendars/CalendarPage";
 import { WbsPage } from "@features/wbs/WbsPage";
 import { ObsPage } from "@features/obs/ObsPage";
+import { ProjectSettingsPage } from "@features/projects/ProjectSettingsPage";
 import { HomePage } from "./HomePage";
 import { AppShell } from "./AppShell";
 import { ModulePlaceholderPage } from "./ModulePlaceholderPage";
@@ -38,6 +39,11 @@ export function App(): JSX.Element {
             <Route element={<RequireAuth />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/projects/:projectId" element={<AppShell />}>
+                {/* Project settings (5.1.1.1.3) sits inside the shell but is
+                    deliberately not one of the ten navigation modules — it
+                    configures the current project rather than being another
+                    area of project-controls work. */}
+                <Route path="settings" element={<ProjectSettingsPage />} />
                 {ALL_MODULE_PATHS.map((path) => {
                   const RealScreen = REAL_MODULE_SCREENS[path];
                   return (

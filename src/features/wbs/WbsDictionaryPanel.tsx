@@ -29,6 +29,10 @@ interface WbsDictionaryPanelProps {
   onDelete: () => void;
   onClose: () => void;
   isSaving: boolean;
+  // 2.2.1.2.2 — decided by WbsPage from the signed-in role, passed down
+  // rather than re-derived here, so one screen has one answer.
+  canUpdate: boolean;
+  canDelete: boolean;
 }
 
 // The five dictionary fields, in the order the specification lists them.
@@ -55,7 +59,7 @@ export function WbsStatusBadge({ status }: { status: WbsStatus }): JSX.Element {
 }
 
 export function WbsDictionaryPanel({
-  element, elements, onSave, onStatusChange, onMove, onDelete, onClose, isSaving,
+  element, elements, onSave, onStatusChange, onMove, onDelete, onClose, isSaving, canUpdate, canDelete,
 }: WbsDictionaryPanelProps): JSX.Element {
   const [tab, setTab] = useState("dictionary");
   const [isEditing, setIsEditing] = useState(false);
@@ -136,9 +140,9 @@ export function WbsDictionaryPanel({
           <div className="flex items-center justify-between">
             <Select
               label="Status"
+              disabled={isSaving || !canUpdate}
               options={wbsApi.WBS_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
               value={element.status}
-              disabled={isSaving}
               onChange={(e) => onStatusChange(e.target.value as WbsStatus)}
               helperText="Completing a parent with unfinished children warns, but is allowed."
               className="w-full"
@@ -228,12 +232,14 @@ export function WbsDictionaryPanel({
                   );
                 })}
               </dl>
-              <button
-                onClick={startEditing}
-                className="flex w-fit items-center gap-1.5 rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
-              >
-                <Pencil size={14} /> Edit dictionary entry
-              </button>
+              {canUpdate && (
+                <button
+                  onClick={startEditing}
+                  className="flex w-fit items-center gap-1.5 rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
+                >
+                  <Pencil size={14} /> Edit dictionary entry
+                </button>
+              )}
             </>
           )}
         </div>
@@ -263,6 +269,7 @@ export function WbsDictionaryPanel({
           <div className="border-t border-neutral-200 pt-4">
             <Select
               label="Move under"
+              disabled={!canUpdate}
               placeholder="— top level (no parent) —"
               options={moveTargets.map((t) => ({ value: t.wbs_id, label: `${t.code}  ${t.name}` }))}
               value={moveTargetId}
@@ -271,7 +278,7 @@ export function WbsDictionaryPanel({
             />
             <button
               onClick={() => onMove(moveTargetId === "" ? null : moveTargetId)}
-              disabled={isSaving || (moveTargetId === "" && element.parent_wbs_id === null)}
+              disabled={isSaving || !canUpdate || (moveTargetId === "" && element.parent_wbs_id === null)}
               className="mt-2 flex items-center gap-1.5 rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50 disabled:opacity-50"
             >
               <CornerDownRight size={14} /> Move element
@@ -282,10 +289,10 @@ export function WbsDictionaryPanel({
             </p>
           </div>
 
-          <div className="border-t border-neutral-200 pt-4">
+          <div className={"border-t border-neutral-200 pt-4 " + (canDelete ? "" : "hidden")}>
             <button
               onClick={onDelete}
-              disabled={isSaving}
+              disabled={isSaving || !canDelete}
               className="flex items-center gap-1.5 rounded border border-status-error/40 px-3 py-2 text-sm text-status-error hover:bg-status-error/5 disabled:opacity-50"
             >
               <Trash2 size={14} /> Delete element

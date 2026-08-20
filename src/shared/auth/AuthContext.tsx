@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import * as authApi from "@shared/api/auth";
 import { setTokenGetter, setUnauthorizedHandler, ApiError } from "@shared/api/client";
+import { can as canDo, canModify as canModifyModule } from "./permissions";
+import type { PermissionAction, PermissionedModule } from "./permissions";
 
 // 1.2.1.2.3 / 4.1.1.1.2 describe a thin AuthContext wrapping Firebase's
 // onAuthStateChanged listener. Adapted here to the real backend (see
@@ -24,6 +26,10 @@ interface AuthContextValue {
   user: authApi.User | null;
   token: string | null;
   isLoading: boolean;
+  // Bound to the signed-in user so screens ask "may I?" without each one
+  // reaching into the user object and re-implementing the same check.
+  can: (module: PermissionedModule, action: PermissionAction) => boolean;
+  canModify: (module: PermissionedModule) => boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: authApi.RegisterInput) => Promise<void>;
   signOut: () => void;
@@ -97,7 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     // real Identity Platform registration would also have required.
   }, []);
 
-  const value: AuthContextValue = { user, token, isLoading, signIn, signUp, signOut };
+  const can = useCallback(
+    (module: PermissionedModule, action: PermissionAction) => canDo(user, module, action),
+    [user]
+  );
+  const canModify = useCallback((module: PermissionedModule) => canModifyModule(user, module), [user]);
+
+  const value: AuthContextValue = { user, token, isLoading, can, canModify, signIn, signUp, signOut };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

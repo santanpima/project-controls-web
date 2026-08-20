@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown, ChevronRight, Plus, ListTree, AlertTriangle, Info, X,
 } from "lucide-react";
+import { useAuth } from "@shared/auth/AuthContext";
+import { readOnlyReason } from "@shared/auth/permissions";
 import { Modal } from "@shared/components/Modal";
 import { TextInput } from "@shared/components/TextInput";
 import { TextArea } from "@shared/components/TextArea";
@@ -36,6 +38,13 @@ const NOTICE_STYLES = {
 export function WbsPage(): JSX.Element {
   const { projectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
+  // 2.2.1.2.2 — what this role may actually do. The API enforces this
+  // regardless; this only decides what's worth showing.
+  const { user, can } = useAuth();
+  const canCreate = can("wbs", "create");
+  const canUpdate = can("wbs", "update");
+  const canDelete = can("wbs", "delete");
+  const readOnly = !canCreate && !canUpdate && !canDelete;
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -188,6 +197,13 @@ export function WbsPage(): JSX.Element {
         </div>
       )}
 
+      {readOnly && (
+        <div className="rounded border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-600">
+          {readOnlyReason(user?.role_name, "the work breakdown structure")} You can browse the structure and
+          its dictionary entries; changing them needs a role with edit access.
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 xl:flex-row">
         <section className="min-w-0 flex-1 rounded bg-white shadow-elevation-1">
           <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
@@ -211,18 +227,21 @@ export function WbsPage(): JSX.Element {
               >
                 Collapse all
               </button>
-              <button
-                onClick={() => setCreateUnder({ parent: null })}
-                className="flex items-center gap-1 rounded bg-brand-primary px-2 py-1 text-xs font-medium text-white"
-              >
-                <Plus size={14} /> Top-level element
-              </button>
+              {canCreate && (
+                <button
+                  onClick={() => setCreateUnder({ parent: null })}
+                  className="flex items-center gap-1 rounded bg-brand-primary px-2 py-1 text-xs font-medium text-white"
+                >
+                  <Plus size={14} /> Top-level element
+                </button>
+              )}
             </div>
           </div>
 
           {elements.length === 0 ? (
             <div className="p-8 text-center text-sm text-neutral-500">
-              This project has no WBS elements yet. Create a top-level element to start the structure.
+              This project has no WBS elements yet.{" "}
+              {canCreate ? "Create a top-level element to start the structure." : ""}
             </div>
           ) : (
             <ul className="divide-y divide-neutral-100">
@@ -268,14 +287,16 @@ export function WbsPage(): JSX.Element {
                       <WbsStatusBadge status={row.element.status} />
                     </button>
 
-                    <button
-                      onClick={() => setCreateUnder({ parent: row.element })}
-                      className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-                      aria-label={`Add a child element under ${row.element.code}`}
-                      title="Add child element"
-                    >
-                      <Plus size={14} />
-                    </button>
+                    {canCreate && (
+                      <button
+                        onClick={() => setCreateUnder({ parent: row.element })}
+                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                        aria-label={`Add a child element under ${row.element.code}`}
+                        title="Add child element"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    )}
                   </li>
                 );
               })}
@@ -289,6 +310,8 @@ export function WbsPage(): JSX.Element {
             element={selected}
             elements={elements}
             isSaving={isSaving}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
             onClose={() => setSelectedId(null)}
             onSave={(fields) => updateMutation.mutate({ wbsId: selected.wbs_id, fields })}
             onStatusChange={(status) => statusMutation.mutate({ wbsId: selected.wbs_id, status })}
