@@ -18,8 +18,16 @@ export function AppShell(): JSX.Element {
 
   const basePath = `/projects/${projectId}`;
   const currentModulePath = location.pathname.split("/")[3]; // /projects/:id/{module}
+  // Two routes live inside the shell without being one of the ten navigation
+  // modules — project settings, and the Responsibility Assignment Matrix, which
+  // belongs to the OBS Theme (Epic 8.3) rather than being a module of its own.
+  // Both still need a breadcrumb label.
+  const NON_MODULE_LABELS: Record<string, string> = {
+    settings: "Settings",
+    ram: "Responsibility Matrix",
+  };
   const currentModuleLabel =
-    MODULE_LABELS_BY_PATH[currentModulePath] ?? (currentModulePath === "settings" ? "Settings" : "");
+    MODULE_LABELS_BY_PATH[currentModulePath] ?? NON_MODULE_LABELS[currentModulePath] ?? "";
 
   // Breadcrumb pattern per 4.3.1.1.1: "Project Name → Module → drill-down
   // path." The project name is real now that a project list exists; it

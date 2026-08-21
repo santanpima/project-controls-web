@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronDown, ChevronRight, Plus, Users2, Pencil, Trash2, Download, Upload, Info, X,
+  ChevronDown, ChevronRight, Plus, Users2, Pencil, Trash2, Download, Upload, Info, X, LayoutGrid,
 } from "lucide-react";
 import { useAuth } from "@shared/auth/AuthContext";
 import { readOnlyReason } from "@shared/auth/permissions";
@@ -210,6 +210,19 @@ export function ObsPage(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* The Responsibility Assignment Matrix (Epic 8.3) is this Theme's other
+          half — the same organizations, seen against the WBS. It is a route of
+          its own rather than a navigation module, so it needs a way in from
+          here. */}
+      <div className="flex justify-end">
+        <Link
+          to={`/projects/${projectId}/ram`}
+          className="flex items-center gap-1.5 rounded border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+        >
+          <LayoutGrid size={14} /> Responsibility Matrix
+        </Link>
+      </div>
+
       {notice && (
         <div
           className={

@@ -11,6 +11,7 @@ import { ObsPage } from "@features/obs/ObsPage";
 import { SchedulePage } from "@features/schedule/SchedulePage";
 import { ResourcesPage } from "@features/resources/ResourcesPage";
 import { CostPage } from "@features/cost/CostPage";
+import { RamPage } from "@features/ram/RamPage";
 import { ProjectSettingsPage } from "@features/projects/ProjectSettingsPage";
 import { HomePage } from "./HomePage";
 import { AppShell } from "./AppShell";
@@ -53,6 +54,11 @@ export function App(): JSX.Element {
                     configures the current project rather than being another
                     area of project-controls work. */}
                 <Route path="settings" element={<ProjectSettingsPage />} />
+                {/* The Responsibility Assignment Matrix (Epic 8.3) is likewise
+                    not one of the ten navigation modules — it belongs to the OBS
+                    Theme and is reached from the OBS and Cost screens, both of
+                    which need to send people here. */}
+                <Route path="ram" element={<RamPage />} />
                 {ALL_MODULE_PATHS.map((path) => {
                   const RealScreen = REAL_MODULE_SCREENS[path];
                   return (

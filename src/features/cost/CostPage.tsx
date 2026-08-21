@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown, ChevronRight, Plus, Pencil, Trash2, Info, X, AlertTriangle, Tag,
@@ -618,7 +618,15 @@ export function CostPage(): JSX.Element {
                   ? phasing.reason
                   : "Estimates need a fiscal period and a control account above them to appear in it."}{" "}
                 The table below is computed from the estimates directly, so it still shows what is
-                planned in each period — it just isn't the control-account rollup EIA-748 asks for.
+                planned in each period — it just isn't the control-account rollup EIA-748 asks for.{" "}
+                Two separate things are needed and they live on different screens: the element must
+                be classified <em>Control account</em> here (the tag button on the Budget by WBS
+                tab), and it must have a control account record naming a responsible organization,
+                created on the{" "}
+                <Link to={`/projects/${projectId}/ram`} className="text-brand-primary hover:underline">
+                  Responsibility Matrix
+                </Link>
+                .
               </span>
             </p>
           )}

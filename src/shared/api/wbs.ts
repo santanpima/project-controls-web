@@ -45,6 +45,12 @@ export interface WbsElement {
   category: WbsCategory | null;
   is_reporting_element: boolean;
   status: WbsStatus;
+  // 8.2.1.1.1 — the organization accountable for this element. Deliberately
+  // nullable: an element can legitimately sit unassigned during early planning,
+  // which is why the RAM's check on it is a soft flag rather than a block. It
+  // is a different field from a control account's own organization, and the two
+  // are allowed to diverge.
+  responsible_obs_id: string | null;
   // 12.1.1.2.2 — the EIA-748 planning classification. Null for most elements:
   // it is set through the scheduling module's own endpoint, not through this
   // one, and the Cost screen is where it is actually used. Included here
