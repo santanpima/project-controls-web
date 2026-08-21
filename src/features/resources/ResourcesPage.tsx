@@ -130,7 +130,12 @@ export function ResourcesPage(): JSX.Element {
   });
 
   const categoryMutation = useMutation({
-    mutationFn: (vars: { kind: "eoc" | "coc"; eocId?: number; code: string; name: string }) =>
+    // The return type is stated explicitly because the two branches produce
+    // different shapes (an Eoc has project_id, a Coc has eoc_id), and inference
+    // would otherwise try to reconcile them into one.
+    mutationFn: async (
+      vars: { kind: "eoc" | "coc"; eocId?: number; code: string; name: string }
+    ): Promise<costHierarchyApi.Eoc | costHierarchyApi.Coc> =>
       vars.kind === "eoc"
         ? costHierarchyApi.createEoc({ projectId: projectId as string, code: vars.code, name: vars.name })
         : costHierarchyApi.createCoc({ eocId: vars.eocId as number, code: vars.code, name: vars.name }),
@@ -193,6 +198,10 @@ export function ResourcesPage(): JSX.Element {
 
   function renderRow(row: DisplayRow) {
     const isResource = row.kind === "resource";
+    // Narrowed here rather than inside the JSX: a `row.kind !== "resource"`
+    // guard around a callback doesn't narrow the value the callback closes
+    // over, since nothing promises row is unchanged by the time it runs.
+    const categoryKind: "eoc" | "coc" | null = row.kind === "resource" ? null : row.kind;
     const Icon = isResource ? TYPE_ICON[(row.resource?.resource_type ?? "other") as ResourceType] : Layers;
     const isSelected = isResource && row.id === selectedResourceId;
 
@@ -259,9 +268,9 @@ export function ResourcesPage(): JSX.Element {
             <Plus size={14} />
           </button>
         )}
-        {row.kind !== "resource" && canDeleteHierarchy && !row.hasChildren && (
+        {categoryKind && canDeleteHierarchy && !row.hasChildren && (
           <button
-            onClick={() => deleteCategoryMutation.mutate({ kind: row.kind, id: Number(row.id) })}
+            onClick={() => deleteCategoryMutation.mutate({ kind: categoryKind, id: Number(row.id) })}
             className="rounded p-1 text-neutral-400 hover:bg-status-error/10 hover:text-status-error"
             aria-label={`Delete ${row.name}`}
             title="Delete cost category"
