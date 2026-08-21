@@ -6,6 +6,7 @@ import { TextInput } from "@shared/components/TextInput";
 import { TextArea } from "@shared/components/TextArea";
 import { Select } from "@shared/components/Select";
 import * as wbsApi from "@shared/api/wbs";
+import * as obsApi from "@shared/api/obs";
 import type { WbsElement, WbsEditableFields, WbsStatus } from "@shared/api/wbs";
 import { validMoveTargets } from "./wbs-tree";
 
@@ -73,6 +74,14 @@ export function WbsDictionaryPanel({
   const controlAccountQuery = useQuery({
     queryKey: ["wbs-control-account", element.wbs_id],
     queryFn: () => wbsApi.getControlAccountStatus(element.wbs_id),
+  });
+
+  // 8.2.1.1.1 — the organizations this element can be made the responsibility
+  // of. Cached under the same key the OBS screen uses, so opening this panel
+  // after visiting that screen costs nothing.
+  const orgsQuery = useQuery({
+    queryKey: ["obs", element.project_id],
+    queryFn: () => obsApi.listOrgs(element.project_id),
   });
 
   // Only the fields actually touched get sent — an untouched dictionary
@@ -176,6 +185,17 @@ export function WbsDictionaryPanel({
                 />
                 Reporting element
               </label>
+              <Select
+                label="Responsible organization"
+                placeholder="— none —"
+                options={(orgsQuery.data ?? []).map((o) => ({
+                  value: o.org_id,
+                  label: `${o.org_code}  ${o.name}`,
+                }))}
+                value={fieldValue("responsible_obs_id")}
+                onChange={(e) => setField("responsible_obs_id", e.target.value)}
+                helperText="The organization accountable for this element. Optional — an element can sit unassigned during early planning. It is also what puts an organization on the Responsibility Matrix."
+              />
               {DICTIONARY_FIELDS.map((field) => (
                 <TextArea
                   key={String(field.key)}
@@ -217,6 +237,23 @@ export function WbsDictionaryPanel({
                     Reporting element
                   </dt>
                   <dd className="text-sm text-neutral-800">{element.is_reporting_element ? "Yes" : "No"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                    Responsible organization
+                  </dt>
+                  <dd className="text-sm text-neutral-800">
+                    {element.responsible_obs_id ? (
+                      (() => {
+                        const org = (orgsQuery.data ?? []).find(
+                          (o) => o.org_id === element.responsible_obs_id
+                        );
+                        return org ? `${org.org_code}  ${org.name}` : "Set, but not in this project";
+                      })()
+                    ) : (
+                      <span className="text-neutral-400">Not set</span>
+                    )}
+                  </dd>
                 </div>
                 {DICTIONARY_FIELDS.map((field) => {
                   const value = element[field.key as keyof WbsElement] as string | null;

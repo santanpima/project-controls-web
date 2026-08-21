@@ -115,6 +115,12 @@ export interface WbsEditableFields {
   name?: string;
   category?: WbsCategory | null;
   is_reporting_element?: boolean;
+  // 8.2.1.1.1 — the accountable organization. Always accepted by the update
+  // endpoint's column allow-list, and until now set by nothing: no screen in
+  // the application offered it, which left the Responsibility Matrix with no
+  // columns on every project, since its column scope is exactly "organizations
+  // responsible for something, or already holding a control account".
+  responsible_obs_id?: string | null;
   description?: string | null;
   scope?: string | null;
   deliverable?: string | null;
