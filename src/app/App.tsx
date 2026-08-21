@@ -9,6 +9,7 @@ import { CalendarPage } from "@features/calendars/CalendarPage";
 import { WbsPage } from "@features/wbs/WbsPage";
 import { ObsPage } from "@features/obs/ObsPage";
 import { SchedulePage } from "@features/schedule/SchedulePage";
+import { ResourcesPage } from "@features/resources/ResourcesPage";
 import { ProjectSettingsPage } from "@features/projects/ProjectSettingsPage";
 import { HomePage } from "./HomePage";
 import { AppShell } from "./AppShell";
@@ -20,7 +21,8 @@ import { ModulePlaceholderPage } from "./ModulePlaceholderPage";
 // standalone — every module in the real navigation structure (4.3.1.1.1)
 // is reachable and shows the actual shell. Calendar (9.1.2.2.1), WBS
 // (7.1.1.2.1 / 7.1.2.1.2) and OBS (8.1.1.1.3 / 8.1.1.2.1) are now real
-// screens, joined now by Schedule (12.2.1.1.1 / 12.2.2.1.1 / 12.3.1.1.1–3);
+// screens, joined by Schedule (12.2.1.1.1 / 12.2.2.1.1 / 12.3.1.1.1–3) and
+// Resources (10.1.2.1.3 / 10.2.1.1.3 / 10.2.1.2.1);
 // every other module still renders the honest placeholder until that
 // screen's own work is built.
 const ALL_MODULE_PATHS = NAV_STRUCTURE.flatMap((section) => section.modules.map((m) => m.path));
@@ -29,6 +31,7 @@ const REAL_MODULE_SCREENS: Record<string, () => JSX.Element> = {
   wbs: WbsPage,
   obs: ObsPage,
   schedule: SchedulePage,
+  resources: ResourcesPage,
 };
 
 export function App(): JSX.Element {
