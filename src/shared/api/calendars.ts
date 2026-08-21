@@ -13,6 +13,24 @@ export interface Calendar {
   updated_at: string;
 }
 
+// 9.1.2.1.3 — the fiscal periods a calendar was divided into when it was
+// created. Every cost estimate is tagged to one of these, which is what makes
+// a budget time-phased rather than a single number; the Cost screen offers
+// them by their real dates rather than by period number alone, since "period
+// 7" means nothing without knowing when period 7 is.
+export interface FiscalPeriod {
+  fiscal_period_id: string;
+  calendar_id: string;
+  period_number: number;
+  start_date: string;
+  end_date: string;
+  quarter: number;
+}
+
+export function listFiscalPeriods(calendarId: string): Promise<FiscalPeriod[]> {
+  return apiRequest<FiscalPeriod[]>(`/calendars/${calendarId}/periods`);
+}
+
 export interface WorkPatternDayDTO {
   calendar_id: string;
   day_offset: number;

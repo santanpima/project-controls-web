@@ -45,6 +45,17 @@ export interface WbsElement {
   category: WbsCategory | null;
   is_reporting_element: boolean;
   status: WbsStatus;
+  // 12.1.1.2.2 — the EIA-748 planning classification. Null for most elements:
+  // it is set through the scheduling module's own endpoint, not through this
+  // one, and the Cost screen is where it is actually used. Included here
+  // because the tree endpoint already returns it and every consumer would
+  // otherwise re-declare it.
+  planning_element_type:
+    | "control_account"
+    | "work_package"
+    | "planning_package"
+    | "summary_level_planning_package"
+    | null;
   // The five dictionary fields (7.1.1.1.3 + 7.1.2.1.1). All nullable at the
   // database level — a summary node legitimately has no dictionary entry.
   description: string | null;
